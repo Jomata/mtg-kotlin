@@ -5,4 +5,5 @@ enum class MTGGameActionType {
     TURN_START,
     CARD_DRAW,
     PLAY_LAND,
+    MULLIGAN_CHECK,
 }

@@ -8,6 +8,14 @@ data class MTGBoardState(
     val exile:List<MTGCard> = emptyList(),
     val gameLog: List<MTGGameAction> = emptyList(),
 ) {
+    //We assert for validity in the constructor after values are set
+    init {
+        //We assert that library, hand, lands, field, yard, and exile sizes added together are equal to the starting deck size
+        val startingDeckSize = 60
+        val cardsInGame = library.size + hand.size + lands.size + field.size + yard.size + exile.size
+        assert(cardsInGame == startingDeckSize)
+    }
+
     fun getBothSidesOfCardsInHand():List<MTGCard> = this.hand.flatMap { listOf(it, it.backside) }.filterNotNull()
 
     fun chooseLand(): MTGLand? {
@@ -51,15 +59,53 @@ data class MTGBoardState(
     //So all methods that modify the boardstate should return a new boardstate
 
     fun startGame(): MTGBoardState {
-        val newLibrary = library.shuffled()
-        val newHand = newLibrary.take(7)
+        //val newLibrary = library.shuffled()
+        //val newHand = newLibrary.take(7)
         return MTGBoardState(
             turn = 0,
-            library = newLibrary.drop(7),
-            hand = newHand,
+            library = this.library,
+            //hand = newHand,
             //gameLog = listOf(MTGGameAction(0, MTGGameActionType.GAME_START, "Opening hand: ${newHand.joinToString("||") { it.name }}")),
             gameLog = listOf(MTGGameAction(0, MTGGameActionType.GAME_START, "Game start")),
-        )
+        ).mulliganCheck(0)
+    }
+
+    private fun keepOpeningHand(hand:List<MTGCard>):Boolean {
+        return hand.count { it.isLand() } >= 2
+    }
+
+    fun mulliganCheck(mulligansSoFar:Int):MTGBoardState {
+        val shuffledLibrary = library.shuffled()
+        val openingHand = shuffledLibrary.take(7)
+        val openingLibrary = shuffledLibrary.drop(7)
+
+        //If we already took 5 mulligans, or keepOpeningHand is true, we keep the hand and choose mulligansSoFar cards to put in the bottom of the library
+        //Else, we shuffle the library, generate a new opening hand, and check for mulligan again
+        if(mulligansSoFar >= 5 || keepOpeningHand(openingHand)) {
+            //TODO: Add logic to keep/bottom cards from opening hand
+            //For now, we keep 2 lands, and put the rest in the bottom of the library
+            val openingHandLands = openingHand.filter { it.isLand() }.take(2).toSet()
+            val openingHandNonLands = (openingHand - openingHandLands).take(7 - openingHandLands.size - mulligansSoFar).toSet()
+            val cardsToBottom = (openingHand - openingHandLands - openingHandNonLands)
+            return this.copy(
+                library = openingLibrary + cardsToBottom, //We take from the start, so putting cards to the bottom means putting them at the end
+                hand = (openingHandLands + openingHandNonLands).toList(),
+                gameLog = gameLog + listOfNotNull(
+                    MTGGameAction(turn, MTGGameActionType.MULLIGAN_CHECK, "Keeping ${7 - mulligansSoFar} cards"),
+                    if (cardsToBottom.isNotEmpty())
+                        MTGGameAction(turn, MTGGameActionType.MULLIGAN_CHECK, "Bottoming ${cardsToBottom.joinToString("||") { it.name }}")
+                    else
+                        null
+                )
+            )
+        } else {
+            return this.copy(
+                library = shuffledLibrary,
+                hand = emptyList(),
+                gameLog = gameLog + MTGGameAction(turn, MTGGameActionType.MULLIGAN_CHECK, "Mulliganing ${openingHand.joinToString("||") { it.name }}")
+            ).mulliganCheck(mulligansSoFar + 1)
+        }
+
     }
 
     fun nextTurn(): MTGBoardState  = this.copy(

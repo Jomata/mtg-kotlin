@@ -1,6 +1,8 @@
 import org.json.simple.JSONObject
+import java.util.UUID
 
 data class MTGCard(
+    val uuid: UUID = UUID.randomUUID(),
     val name:String,
     val types:List<String>,
     val oracle:String,
@@ -27,7 +29,8 @@ data class MTGCard(
 
     fun flip():MTGCard = if(this.backside != null) {
         this.backside.copy(
-            backside = this
+            uuid = this.uuid,
+            backside = this,
         )
     } else this
 

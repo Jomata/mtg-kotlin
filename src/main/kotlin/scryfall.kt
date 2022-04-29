@@ -1,4 +1,5 @@
 import forohfor.scryfall.api.MTGCardQuery
+import java.util.*
 
 fun MTGCard.Companion.of(scryfallCard:forohfor.scryfall.api.Card):MTGCard = if(scryfallCard.cardFaces == null) {
     MTGCard(
@@ -68,7 +69,9 @@ fun MTGCard.Companion.fromArenaList(arenaDeck:String):List<MTGCard> {
         //However, some double faced cards only have the front face as the name, so we can't use // for all of them
         //So instead we do a partial match with the beginning of the name
         val count = cardNamesToAmount.firstOrNull { it.first.startsWith(card.name) }?.second ?: 0
-        (1..count).map { card.copy() }
+        (1..count).map { card.copy(
+            uuid = UUID.randomUUID(),
+        ) }
     }
     assert(deck.size == cardNamesToAmount.sumOf { it.second })
     return deck
