@@ -8,6 +8,7 @@ data class MTGCard(
     //val cmc: Int?,
     val manaCost:String?,
     val json: JSONObject,
+    val tapped:Boolean = false,
     ) {
 
     val cmc:Int

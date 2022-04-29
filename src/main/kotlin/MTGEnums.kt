@@ -9,7 +9,7 @@ enum class MTGMana (val symbol:String) {
 
 enum class MTGLandTag(val tappedOnETB: TappedOnETB) {
     BASIC(TappedOnETB.ALWAYS_UNTAPPED),
-    TRIOME(TappedOnETB.ALWAYS_TAPPED),
+    //TRIOME(TappedOnETB.ALWAYS_TAPPED),
     SNARL(TappedOnETB.CONDITIONALLY_UNTAPPED),
     SLOW(TappedOnETB.CONDITIONALLY_UNTAPPED),
     FAST(TappedOnETB.CONDITIONALLY_UNTAPPED),
@@ -18,6 +18,7 @@ enum class MTGLandTag(val tappedOnETB: TappedOnETB) {
     BOLT(TappedOnETB.ALWAYS_UNTAPPED),
     CREATURE_AFR(TappedOnETB.CONDITIONALLY_UNTAPPED),
     GENERIC_TAPLAND(TappedOnETB.ALWAYS_TAPPED),
+    GENERIC_UNTAPPED(TappedOnETB.ALWAYS_UNTAPPED),
     UNKNOWN(TappedOnETB.CONDITIONALLY_UNTAPPED), //Default assumes untapped
     ;
 
@@ -25,8 +26,10 @@ enum class MTGLandTag(val tappedOnETB: TappedOnETB) {
         fun of(card:MTGCard):MTGLandTag {
             return if(card.types.contains("Basic"))
                 BASIC
-            else if(card.oracle.contains("Cycling {3}") && card.oracle.contains("${card.name} enters the battlefield tapped."))
-                TRIOME
+//            else if(card.oracle.contains("Cycling {3}") && card.oracle.contains("${card.name} enters the battlefield tapped."))
+//                TRIOME
+            else if(card.name.contains("Pathway"))
+                GENERIC_UNTAPPED
             else if(card.oracle.contains("${card.name} enters the battlefield tapped unless you control two or more other lands."))
                 SLOW
             else if(card.oracle.contains("If you control two or more other lands, ${card.name}"))
@@ -35,9 +38,9 @@ enum class MTGLandTag(val tappedOnETB: TappedOnETB) {
                 SNARL
             else if(card.oracle.contains("${card.name} enters the battlefield tapped unless you control two or fewer other lands."))
                 FAST
-            else if(card.oracle.contains("you may pay 3 life. If you don’t, it enters the battlefield tapped."))
+            else if(card.oracle.contains("you may pay 3 life. If you don't, it enters the battlefield tapped."))
                 BOLT
-            else if(card.oracle.contains("you may pay 2 life. If you don’t, it enters the battlefield tapped."))
+            else if(card.oracle.contains("you may pay 2 life. If you don't, it enters the battlefield tapped."))
                 SHOCK
             else if(card.oracle.contains("${card.name} enters the battlefield tapped unless you control a"))
                 CHECK
