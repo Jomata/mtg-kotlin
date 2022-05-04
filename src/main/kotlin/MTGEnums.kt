@@ -5,6 +5,12 @@ enum class MTGMana (val symbol:String) {
     RED("R"),
     GREEN("G"),
     COLORLESS("C"),
+    ;
+    companion object {
+        fun fromSymbol(symbol:String):MTGMana? {
+            return values().firstOrNull { it.symbol == symbol }
+        }
+    }
 }
 
 enum class MTGLandTag(val tappedOnETB: TappedOnETB) {
@@ -58,4 +64,40 @@ enum class TappedOnETB {
     ALWAYS_TAPPED,
     ALWAYS_UNTAPPED,
     CONDITIONALLY_UNTAPPED,
+}
+
+enum class MultiConditionMode {
+    AND,
+    OR,
+}
+
+enum class MTGZone(val of: (MTGBoardState) -> List<MTGCard>) {
+    BATTLEFIELD(MTGBoardState::field),
+    HAND(MTGBoardState::hand),
+    GRAVEYARD(MTGBoardState::yard),
+    LIBRARY(MTGBoardState::library),
+    EXILE(MTGBoardState::exile),
+    LANDS( { board -> board.lands.map { it.asMTGCard() }}),
+    UNTAPPED_PERMANENTS( {it.field.filter { !it.tapped }}),
+    UNTAPPED_LANDS( { board -> board.lands.filter{ !it.tapped }.map { it.asMTGCard() }}),
+}
+
+enum class MTGGameQueryType {
+    TURN_NUMBER,
+    CAN_PAY_CMC,
+    CAN_PAY_MANA_VALUE,
+}
+
+enum class ConditionOperator(val operator: String) {
+    EXACTLY("="),
+    NOT("!="),
+    //GREATER_THAN(">"),
+    //LESS_THAN("<"),
+    AT_LEAST(">="),
+    AT_MOST("<="),
+}
+
+enum class MTGCardField(val of: (MTGCard) -> String?) {
+    NAME( { it.name } ),
+    TYPE( { it.types.joinToString(" ") } ),
 }

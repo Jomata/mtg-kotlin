@@ -1,8 +1,17 @@
+import org.json.simple.JSONObject
+import java.util.*
+
 data class MTGLand (
+    val uuid: UUID = UUID.randomUUID(),
     val name:String,
+    val types:List<String>,
+    val oracle:String,
+    val backside:MTGCard?,
+
     val landTag:MTGLandTag,
     val producedMana: List<MTGMana>,
-    val tapped:Boolean,
+    val json: JSONObject,
+    val tapped:Boolean = false,
 ) {
     //Problema potencial con el mana producido: Los pathways solo tienen un color en el produced_mana
     //Los de any color no tienen WUBRG en su color identity
@@ -19,12 +28,43 @@ data class MTGLand (
         }
     }
 
+    fun canProduce(manaCost:String):Boolean {
+        //Possible options:
+        // - A color from MTGMana
+        // - A number
+        // - 2 colors separated by /
+        return when {
+            manaCost.contains("/") -> manaCost.split("/").any { canProduce(it) }
+            manaCost.toIntOrNull() != null -> true
+            MTGMana.values().any { it.symbol == manaCost } -> producedMana.contains(MTGMana.fromSymbol(manaCost))
+            else -> false
+        }
+    }
+
+    fun asMTGCard() = MTGCard(
+        uuid = uuid,
+        name = name,
+        manaCost = null,
+        types = types,
+        oracle = oracle,
+        backside = null,
+        json = json,
+        tapped = tapped,
+    )
+
     companion object {
         fun of(card:MTGCard):MTGLand = MTGLand(
             name = card.name,
+            types = card.types,
+            oracle = card.oracle,
             landTag = MTGLandTag.of(card),
-            producedMana = emptyList(), //TODO: Grab the highest of color identity or produced_mana in the json objet
+            producedMana =
+            ( card.json.getOrDefault("color_identity", emptyList<String>()) as List<String>
+            + card.json.getOrDefault("produced_mana", emptyList<String>()) as List<String>
+            ).distinct().mapNotNull { MTGMana.fromSymbol(it) },
             tapped = false,
+            json = card.json,
+            backside = card.backside,
         )
     }
 }

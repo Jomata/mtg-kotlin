@@ -7,17 +7,15 @@ data class MTGCard(
     val types:List<String>,
     val oracle:String,
     val backside:MTGCard?,
-    //val cmc: Int?,
     val manaCost:String?,
+
+
     val json: JSONObject,
     val tapped:Boolean = false,
     ) {
 
     val cmc:Int
-        get() = manaCost?.split('{', '}')?.filter { it.isNotEmpty() }?.sumOf { when(it) {
-            "X" -> 0
-            else -> it.toIntOrNull() ?: 1
-        } } ?: 0
+        get() = manaCost?.let { MTGUtils.manaCostToCMC(it) } ?: 0
 
     val totalCmc:Int
         get() = if (backside != null) cmc + backside.totalCmc else cmc

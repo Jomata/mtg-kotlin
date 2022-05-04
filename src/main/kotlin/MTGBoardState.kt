@@ -151,4 +151,22 @@ data class MTGBoardState(
             )
         } else this
     }
+
+    fun canPayFor(cmc: Int): Boolean {
+        return this.lands.count { !it.tapped } >= cmc
+    }
+
+    //TODO: Keep improving this method
+    //Right now, we're only validating that:
+    // - We have enough untapped lands for the CMC
+    // - We can produce mana of all colors needed
+    fun canPayFor(manaCost: String): Boolean {
+        val cmc = MTGUtils.manaCostToCMC(manaCost)
+        if(!canPayFor(cmc)) return false
+
+        val manaSymbols = manaCost.split('{', '}')?.filter { it.isNotEmpty() }
+        return manaSymbols.all { mana ->
+            this.lands.any { l -> l.canProduce(mana)}
+        }
+    }
 }
