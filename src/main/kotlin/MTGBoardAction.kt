@@ -1,5 +1,5 @@
-data class MTGBoardAction(val action:MTGBoardActionType, val howMany:Int) {
-    fun execute(board:MTGBoardState):MTGBoardState {
+data class MTGBoardAction(val action:MTGBoardActionType, val howMany:Int) : IExecutable<MTGBoardState> {
+    override fun execute(board:MTGBoardState):MTGBoardState {
         return when (action) {
             MTGBoardActionType.TAP_LANDS -> board.tapLands(howMany)
             MTGBoardActionType.DRAW -> board.drawCards(howMany)

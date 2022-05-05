@@ -1,4 +1,5 @@
 data class MTGBoardState(
+    val deck:List<MTGCard> = emptyList(),
     val library:List<MTGCard> = emptyList(),
     val turn:Int = 0,
     val hand:List<MTGCard> = emptyList(),
@@ -11,9 +12,8 @@ data class MTGBoardState(
     //We assert for validity in the constructor after values are set
     init {
         //We assert that library, hand, lands, field, yard, and exile sizes added together are equal to the starting deck size
-        val startingDeckSize = 60
         val cardsInGame = library.size + hand.size + lands.size + field.size + yard.size + exile.size
-        assert(cardsInGame == startingDeckSize)
+        assert(cardsInGame == deck.size)
     }
 
     fun getBothSidesOfCardsInHand():List<MTGCard> = this.hand.flatMap { listOf(it, it.backside) }.filterNotNull()
@@ -63,7 +63,7 @@ data class MTGBoardState(
         //val newHand = newLibrary.take(7)
         return MTGBoardState(
             turn = 0,
-            library = this.library,
+            library = this.deck.toList(),
             //hand = newHand,
             //gameLog = listOf(MTGGameAction(0, MTGGameActionType.GAME_START, "Opening hand: ${newHand.joinToString("||") { it.name }}")),
             gameLog = listOf(MTGGameLog(0, MTGGameLogType.GAME_START, "Game start")),
@@ -192,6 +192,26 @@ data class MTGBoardState(
                 gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CAST, "Casting ${match.name}")
             )
         }
+    }
+
+    fun tryCast(query: CardQuery) : MTGBoardState {
+        val match = deck.firstOrNull { query.matches(it) } ?: return this
+        val manaCost = match.manaCost ?: "{0}"
+        val checkCardInHand = BoardQuery(MTGZone.HAND, query)
+        val checkCanPay = GameQuery.canPayFor(manaCost)
+        val actionTapMana = MTGBoardAction(MTGBoardActionType.TAP_LANDS, MTGUtils.manaCostToCMC(manaCost))
+        val actionCast = MTGCardAction(MTGCardActionType.CAST, query)
+        val logic = MTGBoardLogic(
+            MultiCondition.and(
+                checkCardInHand,
+                checkCanPay,
+            ),
+            listOf(
+                actionTapMana,
+                actionCast,
+            ),
+        )
+        return logic.execute(this)
     }
 
     fun tutor(query: CardQuery) : MTGBoardState {

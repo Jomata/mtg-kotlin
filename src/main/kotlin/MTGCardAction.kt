@@ -1,8 +1,11 @@
-data class MTGCardAction (val action:MTGCardActionType, val query:CardQuery) {
-    fun execute(board:MTGBoardState) : MTGBoardState {
+data class MTGCardAction (val action:MTGCardActionType, val query:CardQuery) : IExecutable<MTGBoardState> {
+    constructor(action: MTGCardActionType, query: String) : this(action, CardQuery.parse(query))
+
+    override fun execute(board:MTGBoardState) : MTGBoardState {
         return when (action) {
             MTGCardActionType.TAP -> board.tapPermanent(query)
             MTGCardActionType.CAST -> board.cast(query)
+            MTGCardActionType.TRY_CAST -> board.tryCast(query)
             MTGCardActionType.TUTOR -> board.tutor(query)
             MTGCardActionType.DISCARD -> board.discard(query)
             //MTGCardActionType.PLAY_LAND -> TODO()
@@ -17,6 +20,7 @@ data class MTGCardAction (val action:MTGCardActionType, val query:CardQuery) {
 enum class MTGCardActionType {
     TAP,
     CAST,
+    TRY_CAST,
     TUTOR,
     DISCARD,
     //PLAY_LAND,

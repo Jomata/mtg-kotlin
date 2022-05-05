@@ -64,6 +64,13 @@ data class BoardQuery(
     val operator: ConditionOperator = ConditionOperator.AT_LEAST, 
     val amount: Int = 1
 ) : ICondition<MTGBoardState> {
+    constructor(
+        zone: MTGZone,
+        query: String,
+        operator: ConditionOperator = ConditionOperator.AT_LEAST,
+        amount: Int = 1,
+    ) : this(zone, CardQuery.parse(query), operator, amount)
+
     override fun matches(board: MTGBoardState): Boolean {
         val cards = zone.of(board).count { query.matches(it) }
         return when (operator) {
@@ -96,10 +103,6 @@ data class GameQuery(val queryType: MTGGameQueryType, val target: String) : ICon
             return GameQuery(MTGGameQueryType.CAN_PAY_MANA_VALUE, manaValue)
         }
     }
-}
-
-interface ICondition<T> {
-    fun matches(target: T): Boolean
 }
 
 data class MultiCondition<T>(
