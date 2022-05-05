@@ -25,6 +25,10 @@ data class MTGCard(
 
     fun isLand():Boolean = this.types.contains("Land") || this.backside?.types?.contains("Land") ?: false
 
+    fun isPermanent():Boolean = !this.types.contains("Instant") && !this.types.contains("Sorcery")
+
+    fun tap() = this.copy(tapped = true)
+
     fun flip():MTGCard = if(this.backside != null) {
         this.backside.copy(
             uuid = this.uuid,

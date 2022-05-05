@@ -56,14 +56,14 @@ fun main(args: Array<String>) {
     //We play 10 turns
     val gameEnd = (1..10).fold(gameStart) { state, _ ->
         val afterUntap = state.nextTurn().untapStep()
-        val afterDraw = if (afterUntap.turn > 1) afterUntap.drawCard(1) else afterUntap
+        val afterDraw = if (afterUntap.turn > 1) afterUntap.drawCards(1) else afterUntap
         val afterLand = afterDraw.playLand()
 
         println("Turn ${afterLand.turn}")
         println("Lands: ${afterLand.lands.joinToString { it.name }}")
         //allConditions.filter { it.isTrue(afterLand)}.forEach { println("$it is true") }
         val canCastCardsInHand = state.getBothSidesOfCardsInHand().mapNotNull { it.manaCost?.ifEmpty { null } } .map { GameQuery.canPayFor(it) }
-        canCastCardsInHand.forEach { println("$it is ${it.isTrue(afterLand)}") }
+        canCastCardsInHand.forEach { println("$it is ${it.matches(afterLand)}") }
 
         afterLand
     }

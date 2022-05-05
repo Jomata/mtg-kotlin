@@ -35,7 +35,7 @@
 // - Check for turn 10, tally failure
 
 data class CardQuery(val field:MTGCardField, val value: String) : ICondition<MTGCard> {
-    override fun isTrue(card: MTGCard): Boolean {
+    override fun matches(card: MTGCard): Boolean {
         return field.of(card)?.contains(value) ?: false
     }
 
@@ -64,8 +64,8 @@ data class BoardQuery(
     val operator: ConditionOperator = ConditionOperator.AT_LEAST, 
     val amount: Int = 1
 ) : ICondition<MTGBoardState> {
-    override fun isTrue(board: MTGBoardState): Boolean {
-        val cards = zone.of(board).count { query.isTrue(it) }
+    override fun matches(board: MTGBoardState): Boolean {
+        val cards = zone.of(board).count { query.matches(it) }
         return when (operator) {
             ConditionOperator.EXACTLY -> cards == amount
             ConditionOperator.NOT -> cards != amount
@@ -79,7 +79,7 @@ data class BoardQuery(
 // - turn number
 // - whether we can pay for a mana value (e.g. canPayFor {2}{R})
 data class GameQuery(val queryType: MTGGameQueryType, val target: String) : ICondition<MTGBoardState> {
-    override fun isTrue(board: MTGBoardState): Boolean = when (queryType) {
+    override fun matches(board: MTGBoardState): Boolean = when (queryType) {
         MTGGameQueryType.TURN_NUMBER -> board.turn == target.toInt()
         MTGGameQueryType.CAN_PAY_CMC -> board.canPayFor(target.toInt())
         MTGGameQueryType.CAN_PAY_MANA_VALUE -> board.canPayFor(target)
@@ -99,16 +99,16 @@ data class GameQuery(val queryType: MTGGameQueryType, val target: String) : ICon
 }
 
 interface ICondition<T> {
-    fun isTrue(target: T): Boolean
+    fun matches(target: T): Boolean
 }
 
 data class MultiCondition<T>(
     val conditions: List<ICondition<T>>, 
     val mode: MultiConditionMode = MultiConditionMode.AND
 ) : ICondition<T> {
-    override fun isTrue(target: T): Boolean = when(mode) {
-        MultiConditionMode.AND -> conditions.all { it.isTrue(target) }
-        MultiConditionMode.OR -> conditions.any { it.isTrue(target) }
+    override fun matches(target: T): Boolean = when(mode) {
+        MultiConditionMode.AND -> conditions.all { it.matches(target) }
+        MultiConditionMode.OR -> conditions.any { it.matches(target) }
     }
 
     companion object {

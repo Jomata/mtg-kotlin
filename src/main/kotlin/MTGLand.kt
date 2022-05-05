@@ -28,6 +28,8 @@ data class MTGLand (
         }
     }
 
+    fun tap() = copy(tapped = true)
+
     fun canProduce(manaCost:String):Boolean {
         //Possible options:
         // - A color from MTGMana

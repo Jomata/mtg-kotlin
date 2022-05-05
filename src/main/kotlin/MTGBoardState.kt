@@ -118,7 +118,19 @@ data class MTGBoardState(
         field = this.field.map { it.copy ( tapped = false)},
     )
 
-    fun drawCard(howMany:Int): MTGBoardState {
+    fun playTurn(logic:Any):MTGBoardState {
+        //Advance turn
+        //Untap step
+        //Upkeep step
+        //Draw a card if turn > 1
+        //Play a default land
+        //Execute all the actions indicated in the logic
+        //End of turn step
+        //Cleanup step
+        return this
+    }
+
+    fun drawCards(howMany:Int): MTGBoardState {
         val draw = library.take(howMany)
         val newHand = hand.plus(draw)
         val newLibrary = library.drop(howMany)
@@ -130,6 +142,125 @@ data class MTGBoardState(
                     "||"
                 ) { it.name }
             }")
+        )
+    }
+
+    fun millCards(howMany:Int): MTGBoardState {
+        return copy(
+            library = library.drop(howMany),
+            yard = yard + library.take(howMany),
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CARD_MILL, "Milling $howMany: ${
+                library.take(howMany).joinToString(
+                    "||"
+                ) { it.name }
+            }")
+        )
+    }
+
+    fun tapLands(howMany: Int): MTGBoardState {
+        val landsToTap = lands.filter { !it.tapped }.take(howMany)
+        return copy(
+            lands = lands - landsToTap.toSet() + landsToTap.map { it.tap() },
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.TAP_LANDS, "Tapping $howMany lands")
+        )
+    }
+
+    fun tapPermanent(query: CardQuery): MTGBoardState {
+        val match = field.firstOrNull { query.matches(it) } ?: return this
+        return copy(
+            field = field.filter { it != match } + match.tap(),
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.TAP_PERMANENT, "Tapping ${match.name}")
+        )
+    }
+
+    fun cast(query: CardQuery) : MTGBoardState {
+        val match = hand.firstOrNull { query.matches(it) } ?: return this
+        //TODO: Trigger onCast
+        return if(match.isPermanent()) {
+            //Move card from hand to field
+            //TODO: Trigger onETB
+            copy(
+                hand = hand.filter { it != match } + match,
+                field = field + match,
+                gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CAST, "Casting ${match.name}")
+            )
+        } else {
+            //Move card from hand to graveyard
+            copy(
+                hand = hand.filter { it != match } + match,
+                yard = yard + match,
+                gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CAST, "Casting ${match.name}")
+            )
+        }
+    }
+
+    fun tutor(query: CardQuery) : MTGBoardState {
+        val match = library.firstOrNull { query.matches(it) } ?: return this
+        //Move match from library to hand, then shuffle library
+        return copy(
+            hand = hand + match,
+            library = library.filter { it != match }.shuffled(),
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.TUTOR, "Tutoring ${match.name}")
+        )
+    }
+
+    fun discard(query: CardQuery) : MTGBoardState {
+        val match = this.hand.firstOrNull { query.matches(it) } ?: return this
+        //Move match from hand to yard
+        return this.copy(
+            hand = this.hand.filter { it != match },
+            yard = this.yard + match,
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.DISCARD, "Discarding ${match.name}")
+        )
+    }
+
+    fun flashback(query: CardQuery) : MTGBoardState {
+        val match = this.yard.firstOrNull { query.matches(it) } ?: return this
+        //TODO: Trigger onCast
+        return if(match.isPermanent()) {
+            //Move card from yard to field
+            this.copy(
+                yard = this.yard.filter { it != match },
+                field = this.field + match,
+                gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.FLASHBACK, "Flashback ${match.name}")
+            )
+        } else {
+            //Move card from yard to exile
+            this.copy(
+                yard = this.yard.filter { it != match },
+                exile = this.exile + match,
+                gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.FLASHBACK, "Flashback ${match.name}")
+            )
+        }
+    }
+
+    fun reanimate(query: CardQuery) : MTGBoardState {
+        val match = this.yard.firstOrNull { query.matches(it) && it.isPermanent() } ?: return this
+        //TODO: trigger onETB
+        return this.copy(
+            yard = this.yard.filter { it != match },
+            field = this.field + match,
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.REANIMATE, "Reanimating ${match.name}")
+        )
+    }
+
+    fun exileFromField(query: CardQuery) : MTGBoardState {
+        val match = this.yard.firstOrNull { query.matches(it) } ?: return this
+        //Move match from yard to exile
+        return this.copy(
+            yard = this.yard.filter { it != match },
+            exile = this.exile + match,
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.EXILE, "Exiling ${match.name}")
+        )
+    }
+
+    fun exileFromYard(query: CardQuery) : MTGBoardState {
+        val match = this.field.firstOrNull { query.matches(it) } ?: return this
+        //Move match from field to exile
+        return this.copy(
+            field = this.field.filter { it != match },
+            exile = this.exile + match,
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.EXILE, "Exiling ${match.name}")
         )
     }
 

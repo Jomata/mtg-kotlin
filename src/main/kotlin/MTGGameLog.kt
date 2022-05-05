@@ -6,4 +6,13 @@ enum class MTGGameLogType {
     CARD_DRAW,
     PLAY_LAND,
     MULLIGAN_CHECK,
+    TAP_LANDS,
+    CARD_MILL,
+    TAP_PERMANENT,
+    CAST,
+    TUTOR,
+    DISCARD,
+    FLASHBACK,
+    REANIMATE,
+    EXILE,
 }
