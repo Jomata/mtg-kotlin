@@ -101,3 +101,8 @@ enum class MTGCardField(val of: (MTGCard) -> String?) {
     NAME( { it.name } ),
     TYPE( { it.types.joinToString(" ") } ),
 }
+
+enum class MTGTrigger {
+    ETB,
+    CAST,
+}

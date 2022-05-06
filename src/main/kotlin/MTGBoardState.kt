@@ -1,19 +1,21 @@
 data class MTGBoardState(
     val deck:List<MTGCard>,
-    val library:List<MTGCard> = emptyList(),
+    val triggers:List<MTGTriggeredAction> = emptyList(),
+    val library:List<MTGCard> = deck,
     val turn:Int = 0,
     val hand:List<MTGCard> = emptyList(),
     val lands:List<MTGLand> = emptyList(),
     val field:List<MTGCard> = emptyList(),
     val yard:List<MTGCard> = emptyList(),
     val exile:List<MTGCard> = emptyList(),
+    val stack:List<MTGCard> = emptyList(),
     val gameLog: List<MTGGameLog> = emptyList(),
 ) {
     //We assert for validity in the constructor after values are set
     init {
         //We assert that library, hand, lands, field, yard, and exile sizes added together are equal to the starting deck size
-        val cardsInGame = library.size + hand.size + lands.size + field.size + yard.size + exile.size
-        assert(cardsInGame == deck.size)
+        val cardsInGame = library.size + hand.size + lands.size + field.size + yard.size + exile.size + stack.size
+        require(cardsInGame == deck.size)
     }
 
     fun getBothSidesOfCardsInHand():List<MTGCard> = this.hand.flatMap { listOf(it, it.backside) }.filterNotNull()
@@ -63,6 +65,7 @@ data class MTGBoardState(
         //val newHand = newLibrary.take(7)
         return MTGBoardState(
             deck = deck,
+            triggers = triggers,
             turn = 0,
             //hand = newHand,
             //gameLog = listOf(MTGGameAction(0, MTGGameActionType.GAME_START, "Opening hand: ${newHand.joinToString("||") { it.name }}")),
@@ -150,10 +153,10 @@ data class MTGBoardState(
         return afterActions.cleanupStep()
     }
 
-    private fun runActions(actions:List<IExecutable<MTGBoardState>>):MTGBoardState {
+    private fun runActions(actions:List<IExecutable<MTGBoardState>>, recursive: Boolean = true):MTGBoardState {
         val after = actions.fold(this) { acc, action -> action.execute(acc) }
         //We keep on running the actions until the board state doesn't change
-        return if(after != this)
+        return if(after != this && recursive)
             after.runActions(actions)
         else
             after
@@ -213,19 +216,26 @@ data class MTGBoardState(
 
     fun cast(query: CardQuery) : MTGBoardState {
         val match = hand.firstOrNull { query.matches(it) } ?: return this
-        //TODO: Trigger onCast
+        val onStack = copy(
+            hand = hand.filter { it != match },
+            stack = stack + match,
+        )
+        //TODO: Confirmar que no hay problemas por aplanar todas las acciones y ejecutarlas seguidas usando flatmap
+        val onCastActions = triggers.filter{ it.trigger == MTGTrigger.CAST && it.forCard.matches(match) }.flatMap{it.action}
+        val afterCastTriggers = onStack.runActions(onCastActions, false)
         return if(match.isPermanent()) {
             //Move card from hand to field
-            //TODO: Trigger onETB
-            copy(
-                hand = hand.filter { it != match },
+            val onETBActions = triggers.filter{ it.trigger == MTGTrigger.ETB && it.forCard.matches(match) }.flatMap{it.action}
+            afterCastTriggers.copy(
+                //hand = hand.filter { it != match },
+                stack = stack - match,
                 field = field + match,
                 gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CAST, "Casting ${match.name}")
-            )
+            ).runActions(onETBActions, false)
         } else {
             //Move card from hand to graveyard
-            copy(
-                hand = hand.filter { it != match },
+            afterCastTriggers.copy(
+                stack = stack - match,
                 yard = yard + match,
                 gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CAST, "Casting ${match.name}")
             )
@@ -274,20 +284,24 @@ data class MTGBoardState(
 
     fun flashback(query: CardQuery) : MTGBoardState {
         val match = this.yard.firstOrNull { query.matches(it) } ?: return this
-        //TODO: Trigger onCast
+        val onCastTriggers = triggers.filter{ it.trigger == MTGTrigger.CAST && it.forCard.matches(match) }.flatMap{it.action}
+        val afterCasting = copy(
+            yard = yard - match,
+            stack = stack + match,
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.FLASHBACK, "Flashback ${match.name}"),
+        ).runActions(onCastTriggers, false)
         return if(match.isPermanent()) {
-            //Move card from yard to field
-            this.copy(
-                yard = this.yard.filter { it != match },
+            //Move card from yard to field and trigger ETBs
+            val onETBTriggers = triggers.filter{ it.trigger == MTGTrigger.ETB && it.forCard.matches(match) }.flatMap{it.action}
+            afterCasting.copy(
+                stack = stack - match,
                 field = this.field + match,
-                gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.FLASHBACK, "Flashback ${match.name}")
-            )
+            ).runActions(onETBTriggers, false)
         } else {
             //Move card from yard to exile
-            this.copy(
-                yard = this.yard.filter { it != match },
+            afterCasting.copy(
+                stack = stack - match,
                 exile = this.exile + match,
-                gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.FLASHBACK, "Flashback ${match.name}")
             )
         }
     }

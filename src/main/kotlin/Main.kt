@@ -69,6 +69,14 @@ fun main(args: Array<String>) {
         MTGCardAction(MTGCardActionType.FLASHBACK, "Can't Stay Away"),
     ))
 
+    val flashbackFaithless = MTGBoardLogic(MultiCondition.and(
+        faithlessInYard,
+        GameQuery.canPayFor("{2}{R}"),
+    ), listOf(
+        MTGBoardAction(MTGBoardActionType.TAP_LANDS, 3),
+        MTGCardAction(MTGCardActionType.FLASHBACK, "Faithless Looting")
+    ))
+
     val tryCastFaithlessIfParhelionInHand = MTGBoardLogic(parhelionInYard, tryCastFaithless)
 
     val tryCastStitcher = MTGBoardLogic(MTGCardAction(MTGCardActionType.TRY_CAST, "Stitcher's Supplier"))
@@ -120,12 +128,32 @@ fun main(args: Array<String>) {
         wishForGreasefang,
         wishForGoblinEngineer,
         tryCastFaithlessIfParhelionInHand,
+        tryCastGoblinEngineer,
         tryCastStitcher,
         tryCastButler,
-        tryCastGoblinEngineer,
         tryCastWishclaw,
         tryCastFaithless,
         tryCastGreasefang,
+        flashbackFaithless,
+    )
+
+    val onStitcherETB = MTGTriggeredAction.onETB("Stitcher",MTGBoardAction(MTGBoardActionType.MILL, 3))
+    val onButlerETB = MTGTriggeredAction.onETB("Undead Butler",MTGBoardAction(MTGBoardActionType.MILL, 3))
+    val onFaithlessCast = MTGTriggeredAction.onCast("Faithless Looting", listOf(
+        MTGBoardAction(MTGBoardActionType.DRAW, 2),
+        //TODO: Better logic for discard
+        MTGCardAction(MTGCardActionType.DISCARD, "type:Vehicle"),
+        MTGCardAction(MTGCardActionType.DISCARD, "type:Vehicle"),
+    ))
+    val onGoblinETB = MTGTriggeredAction.onETB("Goblin Engineer", listOf(
+        MTGCardAction(MTGCardActionType.TUTOR, "Parhelion"),
+        MTGCardAction(MTGCardActionType.DISCARD, "Parhelion"),
+    ))
+    val triggers = listOf(
+        onStitcherETB,
+        onButlerETB,
+        onGoblinETB,
+        onFaithlessCast,
     )
 
 //    val gameStart = MTGBoardState(deck = cardList).startGame()
@@ -143,6 +171,6 @@ fun main(args: Array<String>) {
 //    }
     //println(gameEnd)
     //Print all the actions in the game log
-    val gameEnd = MTGBoardState(deck = cardList).startGame().playTurns(10, heuristics)
+    val gameEnd = MTGBoardState(deck = cardList, triggers = triggers).startGame().playTurns(10, heuristics)
     gameEnd.gameLog.forEach { println(it.info) }
 }
