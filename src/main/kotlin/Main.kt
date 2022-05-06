@@ -27,47 +27,122 @@ fun main(args: Array<String>) {
 
     val cardList = MTGCard.fromArenaList(deckList)
 
-    val greasefangInHand = BoardQuery(MTGZone.HAND, CardQuery.parse("Greasefang"))
-    val parhelionInYard = BoardQuery(MTGZone.GRAVEYARD, CardQuery.parse("Parhelion"))
-    val success = MultiCondition.and(greasefangInHand, parhelionInYard)
-    val greasefangInYard = BoardQuery(MTGZone.GRAVEYARD, CardQuery.parse("Greasefang"))
-    val noGreasefangInHand = BoardQuery(MTGZone.HAND, CardQuery.parse("Greasefang"), ConditionOperator.EXACTLY, 0)
-    val noParhelionInYard = BoardQuery(MTGZone.GRAVEYARD, CardQuery.parse("Parhelion"), ConditionOperator.EXACTLY, 0)
-    val wishclawInField = BoardQuery(MTGZone.BATTLEFIELD, CardQuery.parse("Wishclaw"))
-    val wishForGreasefang = MultiCondition.and(noGreasefangInHand, wishclawInField)
-    val wishForGoblinEng = MultiCondition.and(noParhelionInYard, wishclawInField)
-    val faithlessInYard = BoardQuery(MTGZone.GRAVEYARD, CardQuery.parse("Faithless Looting"))
-    val canCastFaithless = GameQuery.canPayFor("{R}")
-    val canFlashbackFaithless = GameQuery.canPayFor("{1}{R}{R}")
-    val canCastGreasefang = GameQuery.canPayFor("{1}{W}{B}")
+    val greasefangInHand = BoardQuery(MTGZone.HAND,"Greasefang")
+    val greasefangInField = BoardQuery(MTGZone.BATTLEFIELD,"Greasefang")
+    val parhelionInYard = BoardQuery(MTGZone.GRAVEYARD, "Parhelion")
+    val success = MultiCondition.and(greasefangInField, parhelionInYard)
+    val greasefangInYard = BoardQuery(MTGZone.GRAVEYARD, "Greasefang")
+    val noGreasefangInHandAndField = MultiCondition.and(
+        BoardQuery(MTGZone.HAND, "Greasefang", ConditionOperator.EXACTLY, 0),
+        BoardQuery(MTGZone.BATTLEFIELD, "Greasefang", ConditionOperator.EXACTLY, 0),
+    )
+    val noEngineerInHand = BoardQuery(MTGZone.HAND, "Goblin Engineer", ConditionOperator.EXACTLY, 0)
+    val noParhelionInYard = BoardQuery(MTGZone.GRAVEYARD, "Parhelion", ConditionOperator.EXACTLY, 0)
+    val wishclawInField = BoardQuery(MTGZone.BATTLEFIELD, "Wishclaw")
+    val faithlessInYard = BoardQuery(MTGZone.GRAVEYARD, "Faithless Looting")
+    val csaInYard = BoardQuery(MTGZone.GRAVEYARD, "Can't Stay Away")
 
-    val allConditions = listOf(
-        success,
+    val tryCastGreasefang = MTGBoardLogic(
+        BoardQuery(MTGZone.BATTLEFIELD, "Greasefang", ConditionOperator.EXACTLY, 0),
+        MTGCardAction(MTGCardActionType.TRY_CAST, "Greasefang")
+    )
+    val tryCastGreasefangIfParhelionInYard = MTGBoardLogic(parhelionInYard, tryCastGreasefang)
+    val tryCastFaithless = MTGCardAction(MTGCardActionType.TRY_CAST, "Faithless Looting")
+
+    val tryReanimateGreaseWithCSA = MTGBoardLogic(MultiCondition.and(
+        parhelionInYard,
         greasefangInYard,
-        wishForGreasefang,
-        wishForGoblinEng,
-        faithlessInYard,
-        canCastFaithless,
-        canFlashbackFaithless,
-        canCastGreasefang,
+    ), MTGCardAction(MTGCardActionType.TRY_CAST, "Can't Stay Away"))
+
+    val tryReanimateGreaseWithRR = MTGBoardLogic(MultiCondition.and(
+        parhelionInYard,
+        greasefangInYard,
+    ), MTGCardAction(MTGCardActionType.TRY_CAST, "Revival"))
+
+    val tryReanimateGreaseWithCSAFlashback = MTGBoardLogic(MultiCondition.and(
+        parhelionInYard,
+        greasefangInYard,
+        GameQuery.canPayFor("{3}{W}{B}"),
+        csaInYard,
+    ), listOf(
+        MTGBoardAction(MTGBoardActionType.TAP_LANDS, 5),
+        MTGCardAction(MTGCardActionType.FLASHBACK, "Can't Stay Away"),
+    ))
+
+    val tryCastFaithlessIfParhelionInHand = MTGBoardLogic(parhelionInYard, tryCastFaithless)
+
+    val tryCastStitcher = MTGBoardLogic(MTGCardAction(MTGCardActionType.TRY_CAST, "Stitcher's Supplier"))
+    val tryCastButler = MTGBoardLogic(MTGCardAction(MTGCardActionType.TRY_CAST, "Undead Butler"))
+
+    val tryCastGoblinEngineer = MTGBoardLogic(
+        noParhelionInYard,
+        MTGCardAction(MTGCardActionType.TRY_CAST, "Goblin Engineer")
     )
 
-    val gameStart = MTGBoardState(library = cardList).startGame()
-    //We play 10 turns
-    val gameEnd = (1..10).fold(gameStart) { state, _ ->
-        val afterUntap = state.nextTurn().untapStep()
-        val afterDraw = if (afterUntap.turn > 1) afterUntap.drawCards(1) else afterUntap
-        val afterLand = afterDraw.playLand()
+    val wishForGreasefang = MTGBoardLogic(MultiCondition.and(
+            noGreasefangInHandAndField,
+            wishclawInField,
+        ),
+        listOf(
+            //Tap 1 land, exile wishclaw from field, tutor Greasefang
+            MTGBoardAction(MTGBoardActionType.TAP_LANDS, 1),
+            MTGCardAction(MTGCardActionType.EXILE_FROM_FIELD, "Wishclaw"),
+            MTGCardAction(MTGCardActionType.TUTOR, "Greasefang"),
+        )
+    )
 
-        println("Turn ${afterLand.turn}")
-        println("Lands: ${afterLand.lands.joinToString { it.name }}")
-        //allConditions.filter { it.isTrue(afterLand)}.forEach { println("$it is true") }
-        val canCastCardsInHand = state.getBothSidesOfCardsInHand().mapNotNull { it.manaCost?.ifEmpty { null } } .map { GameQuery.canPayFor(it) }
-        canCastCardsInHand.forEach { println("$it is ${it.matches(afterLand)}") }
+    val wishForGoblinEngineer = MTGBoardLogic(MultiCondition.and(
+        noParhelionInYard,
+        noEngineerInHand,
+        wishclawInField,
+    ),
+        listOf(
+            //Tap 1 land, exile wishclaw from field, tutor Greasefang
+            MTGBoardAction(MTGBoardActionType.TAP_LANDS, 1),
+            MTGCardAction(MTGCardActionType.EXILE_FROM_FIELD, "Wishclaw"),
+            MTGCardAction(MTGCardActionType.TUTOR, "Goblin Engineer"),
+        )
+    )
 
-        afterLand
-    }
+    val tryCastWishclaw = MTGBoardLogic(
+        MultiCondition.or(
+            noEngineerInHand,
+            noGreasefangInHandAndField,
+        ),
+        MTGCardAction(MTGCardActionType.TRY_CAST, "Wishclaw")
+    )
+
+    val heuristics = listOf(
+        tryCastGreasefangIfParhelionInYard,
+        tryReanimateGreaseWithRR,
+        tryReanimateGreaseWithCSA,
+        tryReanimateGreaseWithCSAFlashback,
+        wishForGreasefang,
+        wishForGoblinEngineer,
+        tryCastFaithlessIfParhelionInHand,
+        tryCastStitcher,
+        tryCastButler,
+        tryCastGoblinEngineer,
+        tryCastWishclaw,
+        tryCastFaithless,
+        tryCastGreasefang,
+    )
+
+//    val gameStart = MTGBoardState(deck = cardList).startGame()
+//    //We play 10 turns
+//    val gameEnd = (1..10).fold(gameStart) { state, _ ->
+//
+//
+//        //println("Turn ${afterLand.turn}")
+//        //println("Lands: ${afterLand.lands.joinToString { it.name }}")
+//        //allConditions.filter { it.isTrue(afterLand)}.forEach { println("$it is true") }
+//        //val canCastCardsInHand = state.getBothSidesOfCardsInHand().mapNotNull { it.manaCost?.ifEmpty { null } } .map { GameQuery.canPayFor(it) }
+//        //canCastCardsInHand.forEach { println("$it is ${it.matches(afterLand)}") }
+//
+//        state.playTurn()
+//    }
     //println(gameEnd)
     //Print all the actions in the game log
+    val gameEnd = MTGBoardState(deck = cardList).startGame().playTurns(10, heuristics)
     gameEnd.gameLog.forEach { println(it.info) }
 }

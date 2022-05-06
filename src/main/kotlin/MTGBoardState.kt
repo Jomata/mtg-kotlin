@@ -1,5 +1,5 @@
 data class MTGBoardState(
-    val deck:List<MTGCard> = emptyList(),
+    val deck:List<MTGCard>,
     val library:List<MTGCard> = emptyList(),
     val turn:Int = 0,
     val hand:List<MTGCard> = emptyList(),
@@ -62,8 +62,8 @@ data class MTGBoardState(
         //val newLibrary = library.shuffled()
         //val newHand = newLibrary.take(7)
         return MTGBoardState(
+            deck = deck,
             turn = 0,
-            library = this.deck.toList(),
             //hand = newHand,
             //gameLog = listOf(MTGGameAction(0, MTGGameActionType.GAME_START, "Opening hand: ${newHand.joinToString("||") { it.name }}")),
             gameLog = listOf(MTGGameLog(0, MTGGameLogType.GAME_START, "Game start")),
@@ -74,8 +74,8 @@ data class MTGBoardState(
         return hand.count { it.isLand() } >= 2
     }
 
-    fun mulliganCheck(mulligansSoFar:Int):MTGBoardState {
-        val shuffledLibrary = library.shuffled()
+    private fun mulliganCheck(mulligansSoFar:Int):MTGBoardState {
+        val shuffledLibrary = deck.shuffled()
         val openingHand = shuffledLibrary.take(7)
         val openingLibrary = shuffledLibrary.drop(7)
 
@@ -108,25 +108,63 @@ data class MTGBoardState(
 
     }
 
-    fun nextTurn(): MTGBoardState  = this.copy(
-        turn = this.turn + 1,
-        gameLog = this.gameLog + MTGGameLog(this.turn + 1, MTGGameLogType.TURN_START, "Turn ${this.turn+1} start: ${this.hand.joinToString("||") { it.name }}")
-    )
+    fun nextTurn(): MTGBoardState {
+        val newTurn = turn + 1
+        return copy(
+            turn = newTurn,
+            gameLog = gameLog + MTGGameLog(newTurn, MTGGameLogType.TURN_START, "Turn $newTurn start")
+                + MTGGameLog(newTurn, MTGGameLogType.ZONE_HAND, "Hand :" + hand.joinToString("||") { it.name })
+                + listOfNotNull(
+                if (lands.isNotEmpty()) MTGGameLog( newTurn, MTGGameLogType.ZONE_LANDS, "Land :" + lands.joinToString("||") { it.name }) else null,
+                if (field.isNotEmpty()) MTGGameLog( newTurn, MTGGameLogType.ZONE_FIELD, "Field:" + field.joinToString("||") { it.name }) else null,
+                if (yard.isNotEmpty()) MTGGameLog( newTurn, MTGGameLogType.ZONE_YARD, "Yard :" + yard.joinToString("||") { it.name }) else null,
+                if (exile.isNotEmpty()) MTGGameLog( newTurn, MTGGameLogType.ZONE_EXILE, "Exile:" + exile.joinToString("||") { it.name }) else null
+            ),
+        )
+    }
+    
 
     fun untapStep():MTGBoardState = this.copy(
         lands = this.lands.map { it.copy ( tapped = false)},
         field = this.field.map { it.copy ( tapped = false)},
     )
 
-    fun playTurn(logic:Any):MTGBoardState {
+    fun upkeepStep():MTGBoardState = this.copy()
+
+    fun cleanupStep():MTGBoardState = this.copy()
+
+    fun playTurn(actions:List<IExecutable<MTGBoardState>> = emptyList()):MTGBoardState {
         //Advance turn
         //Untap step
         //Upkeep step
+        val afterUpkeep = this.nextTurn().untapStep().upkeepStep()
         //Draw a card if turn > 1
+        val afterDraw = if (afterUpkeep.turn > 1) afterUpkeep.drawCards(1) else afterUpkeep
         //Play a default land
+        val afterLand = afterDraw.playLand()
         //Execute all the actions indicated in the logic
+        //TODO: Como estoy usando fold en el .execute, solo estoy ejecutando maximo una vez cada accion que aplica
+        val afterActions = afterLand.runActions(actions)
         //End of turn step
         //Cleanup step
+        return afterActions.cleanupStep()
+    }
+
+    private fun runActions(actions:List<IExecutable<MTGBoardState>>):MTGBoardState {
+        val after = actions.fold(this) { acc, action -> action.execute(acc) }
+        //We keep on running the actions until the board state doesn't change
+        return if(after != this)
+            after.runActions(actions)
+        else
+            after
+    }
+
+    fun playTurns(turns:Int, actions:List<IExecutable<MTGBoardState>> = emptyList()):MTGBoardState {
+        require(turns > 0)
+        return (1..turns).fold(this) { state, _ -> state.playTurn(actions) }
+    }
+
+    fun playToEnd(logic:MTGBoardLogic? = null):MTGBoardState {
         return this
     }
 
@@ -180,14 +218,14 @@ data class MTGBoardState(
             //Move card from hand to field
             //TODO: Trigger onETB
             copy(
-                hand = hand.filter { it != match } + match,
+                hand = hand.filter { it != match },
                 field = field + match,
                 gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CAST, "Casting ${match.name}")
             )
         } else {
             //Move card from hand to graveyard
             copy(
-                hand = hand.filter { it != match } + match,
+                hand = hand.filter { it != match },
                 yard = yard + match,
                 gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CAST, "Casting ${match.name}")
             )
@@ -264,7 +302,7 @@ data class MTGBoardState(
         )
     }
 
-    fun exileFromField(query: CardQuery) : MTGBoardState {
+    fun exileFromYard(query: CardQuery) : MTGBoardState {
         val match = this.yard.firstOrNull { query.matches(it) } ?: return this
         //Move match from yard to exile
         return this.copy(
@@ -274,7 +312,7 @@ data class MTGBoardState(
         )
     }
 
-    fun exileFromYard(query: CardQuery) : MTGBoardState {
+    fun exileFromField(query: CardQuery) : MTGBoardState {
         val match = this.field.firstOrNull { query.matches(it) } ?: return this
         //Move match from field to exile
         return this.copy(
