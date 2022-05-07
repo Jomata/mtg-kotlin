@@ -1,6 +1,6 @@
 data class MTGGameSim(
     val deck:List<MTGCard>,
-    val gameLogic: List<MTGBoardLogic>,
+    val gameLogic: List<IExecutable<MTGBoardState>>,
     val cardTriggers: List<MTGTriggeredAction>,
 ) {
     fun runSims(winCon: ICondition<MTGBoardState>, numSims: Int = 1000): List<Int> {

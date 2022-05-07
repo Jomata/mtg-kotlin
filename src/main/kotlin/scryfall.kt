@@ -77,3 +77,30 @@ fun MTGCard.Companion.fromArenaList(arenaDeck:String):List<MTGCard> {
     return deck
 }
 
+fun MTGCard.Companion.fromRangeArenaList(arenaDeck:String):List<Triple<MTGCard,Int,Int>> {
+    val regex = Regex("""(?<min>\d+)(\-(?<max>\d+))? (?<name>[^\(]+) \((?<set>[^\)]+\)) (?<number>\d+)""")
+    val cardList = arenaDeck.split('\n','\r').map { it.trim() }.filter { it.isNotEmpty() }
+    val cardNamesToAmount = cardList.map {
+        val match = regex.find(it)
+        if(match != null) {
+            val min = match.groups["min"]?.value?.toInt() ?: 4
+            val max = match.groups["max"]?.value?.toInt() ?: min
+            val name = match.groups["name"]?.value ?: ""
+            //val set = match.groupValues[3]
+            //val number = match.groupValues[4].toInt()
+            return@map Triple(name,min,max)
+        } else {
+            return@map null
+        }
+    }.filterNotNull()
+    val cards = MTGCard.fromNameList(cardNamesToAmount.joinToString("\n") { it.first })
+    val deck = cards.map { card ->
+        //Because of double-faced cards (like Revival // Revenge) we can't use an exact name match
+        //However, some double faced cards only have the front face as the name, so we can't use // for all of them
+        //So instead we do a partial match with the beginning of the name
+        val amounts = cardNamesToAmount.first { it.first.startsWith(card.name) }
+        return@map Triple(card,amounts.second,amounts.third)
+    }
+    return deck
+}
+

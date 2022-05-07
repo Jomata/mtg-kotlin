@@ -16,6 +16,8 @@ dependencies {
     testImplementation(kotlin("test"))
     // https://mvnrepository.com/artifact/io.github.forohforerror/ScryfallAPIBinding
     implementation("io.github.forohforerror:ScryfallAPIBinding:1.11.1")
+    // https://mvnrepository.com/artifact/io.jenetics/jenetics
+    implementation("io.jenetics:jenetics:7.0.0")
 }
 
 tasks.test {

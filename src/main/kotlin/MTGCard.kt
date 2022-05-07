@@ -14,6 +14,10 @@ data class MTGCard(
     val tapped:Boolean = false,
     ) {
 
+    override fun toString(): String {
+        return name + (backside?.name?.let { " // $it" } ?: "")
+    }
+
     val cmc:Int
         get() = manaCost?.let { MTGUtils.manaCostToCMC(it) } ?: 0
 

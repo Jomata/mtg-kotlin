@@ -74,7 +74,7 @@ data class MTGBoardState(
     }
 
     private fun keepOpeningHand(hand:List<MTGCard>):Boolean {
-        return hand.count { it.isLand() } >= 2
+        return hand.count { it.isLand() } >= 2 && hand.count { !it.isLand() } >= 2
     }
 
     private fun mulliganCheck(mulligansSoFar:Int):MTGBoardState {
