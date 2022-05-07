@@ -21,7 +21,14 @@ data class MTGCard(
         get() = if (backside != null) cmc + backside.totalCmc else cmc
 
     //For now, we're ignoring colors, and just focusing in cmc vs untapped lands
-    fun canCastWith(lands:List<MTGLand>):Boolean = lands.count { !it.tapped } >= this.cmc
+    //fun canCastWith(lands:List<MTGLand>):Boolean = lands.count { !it.tapped } >= this.cmc
+    fun canCastWith(lands:List<MTGLand>):Boolean {
+        val testBoard = MTGBoardState(deck = lands.map{it.asMTGCard()}, library=emptyList(), lands = lands)
+        return if(manaCost != null)
+            testBoard.canPayFor(manaCost)
+        else
+            testBoard.canPayFor(cmc)
+    }
 
     fun isLand():Boolean = this.types.contains("Land") || this.backside?.types?.contains("Land") ?: false
 

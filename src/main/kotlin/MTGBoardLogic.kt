@@ -18,9 +18,17 @@ data class MTGBoardLogic (
 
     override fun execute(board: MTGBoardState): MTGBoardState {
         return if (_if?.matches(board) != false) { //If the condition is null, or evaluates to true
+//            if(_if != null) {
+//                println("$_if is true")
+//                println("Executing $_then")
+//            }
             _then.fold(board) { acc, exec -> exec.execute(acc) }
-        } else {
+        } else if(_else.isNotEmpty()) {
+//            println("$_if is false")
+//            println("Executing $_else")
             _else.fold(board) { acc, exec -> exec.execute(acc) }
+        } else {
+            board
         }
     }
 }

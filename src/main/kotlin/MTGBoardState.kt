@@ -15,7 +15,7 @@ data class MTGBoardState(
     init {
         //We assert that library, hand, lands, field, yard, and exile sizes added together are equal to the starting deck size
         val cardsInGame = library.size + hand.size + lands.size + field.size + yard.size + exile.size + stack.size
-        require(cardsInGame == deck.size)
+        require(cardsInGame == deck.size) { gameLog.joinToString { "\n" } }
     }
 
     fun getBothSidesOfCardsInHand():List<MTGCard> = this.hand.flatMap { listOf(it, it.backside) }.filterNotNull()
@@ -217,8 +217,9 @@ data class MTGBoardState(
     fun cast(query: CardQuery) : MTGBoardState {
         val match = hand.firstOrNull { query.matches(it) } ?: return this
         val onStack = copy(
-            hand = hand.filter { it != match },
+            hand = hand - match,
             stack = stack + match,
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CAST, "Casting ${match.name}"),
         )
         //TODO: Confirmar que no hay problemas por aplanar todas las acciones y ejecutarlas seguidas usando flatmap
         val onCastActions = triggers.filter{ it.trigger == MTGTrigger.CAST && it.forCard.matches(match) }.flatMap{it.action}
@@ -228,16 +229,14 @@ data class MTGBoardState(
             val onETBActions = triggers.filter{ it.trigger == MTGTrigger.ETB && it.forCard.matches(match) }.flatMap{it.action}
             afterCastTriggers.copy(
                 //hand = hand.filter { it != match },
-                stack = stack - match,
-                field = field + match,
-                gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CAST, "Casting ${match.name}")
+                stack = afterCastTriggers.stack - match,
+                field = afterCastTriggers.field + match,
             ).runActions(onETBActions, false)
         } else {
             //Move card from hand to graveyard
             afterCastTriggers.copy(
-                stack = stack - match,
-                yard = yard + match,
-                gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.CAST, "Casting ${match.name}")
+                stack = afterCastTriggers.stack - match,
+                yard = afterCastTriggers.yard + match,
             )
         }
     }
@@ -273,11 +272,11 @@ data class MTGBoardState(
     }
 
     fun discard(query: CardQuery) : MTGBoardState {
-        val match = this.hand.firstOrNull { query.matches(it) } ?: return this
+        val match = hand.firstOrNull { query.matches(it) } ?: return this
         //Move match from hand to yard
         return this.copy(
-            hand = this.hand.filter { it != match },
-            yard = this.yard + match,
+            hand = hand - match,
+            yard = yard + match,
             gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.DISCARD, "Discarding ${match.name}")
         )
     }
@@ -294,33 +293,33 @@ data class MTGBoardState(
             //Move card from yard to field and trigger ETBs
             val onETBTriggers = triggers.filter{ it.trigger == MTGTrigger.ETB && it.forCard.matches(match) }.flatMap{it.action}
             afterCasting.copy(
-                stack = stack - match,
-                field = this.field + match,
+                stack = afterCasting.stack - match,
+                field = afterCasting.field + match,
             ).runActions(onETBTriggers, false)
         } else {
             //Move card from yard to exile
             afterCasting.copy(
-                stack = stack - match,
-                exile = this.exile + match,
+                stack = afterCasting.stack - match,
+                exile = afterCasting.exile + match,
             )
         }
     }
 
     fun reanimate(query: CardQuery) : MTGBoardState {
         val match = this.yard.firstOrNull { query.matches(it) && it.isPermanent() } ?: return this
-        //TODO: trigger onETB
+        val onETBTriggers = triggers.filter{ it.trigger == MTGTrigger.ETB && it.forCard.matches(match) }.flatMap{it.action}
         return this.copy(
-            yard = this.yard.filter { it != match },
-            field = this.field + match,
+            yard = yard - match,
+            field = field + match,
             gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.REANIMATE, "Reanimating ${match.name}")
-        )
+        ).runActions(onETBTriggers, false)
     }
 
     fun exileFromYard(query: CardQuery) : MTGBoardState {
         val match = this.yard.firstOrNull { query.matches(it) } ?: return this
         //Move match from yard to exile
         return this.copy(
-            yard = this.yard.filter { it != match },
+            yard = this.yard - match,
             exile = this.exile + match,
             gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.EXILE, "Exiling ${match.name}")
         )
@@ -330,7 +329,7 @@ data class MTGBoardState(
         val match = this.field.firstOrNull { query.matches(it) } ?: return this
         //Move match from field to exile
         return this.copy(
-            field = this.field.filter { it != match },
+            field = this.field - match,
             exile = this.exile + match,
             gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.EXILE, "Exiling ${match.name}")
         )

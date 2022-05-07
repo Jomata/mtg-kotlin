@@ -36,7 +36,14 @@
 
 data class CardQuery(val field:MTGCardField, val value: String) : ICondition<MTGCard> {
     override fun matches(card: MTGCard): Boolean {
-        return field.of(card)?.contains(value) ?: false
+        return if(value == "*")
+            true
+        else
+            field.of(card)?.contains(value) ?: false
+    }
+
+    override fun toString(): String {
+        return "$field:$value"
     }
 
     companion object {
@@ -80,6 +87,14 @@ data class BoardQuery(
             ConditionOperator.AT_MOST -> cards <= amount
         }
     }
+
+    override fun toString(): String {
+        return "$zone contains $operator $amount $query"
+    }
+
+    companion object {
+        fun hasCardInHand(cardQuery: String): ICondition<MTGBoardState> = BoardQuery(MTGZone.HAND, cardQuery)
+    }
 }
 
 //Special cases that can't be directly expressed by card queries
@@ -112,6 +127,13 @@ data class MultiCondition<T>(
     override fun matches(target: T): Boolean = when(mode) {
         MultiConditionMode.AND -> conditions.all { it.matches(target) }
         MultiConditionMode.OR -> conditions.any { it.matches(target) }
+    }
+
+    override fun toString(): String {
+        return when (mode) {
+            MultiConditionMode.AND -> conditions.joinToString(" and ")
+            MultiConditionMode.OR -> conditions.joinToString(" or ")
+        }
     }
 
     companion object {

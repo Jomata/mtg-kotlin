@@ -78,7 +78,7 @@ enum class MTGZone(val of: (MTGBoardState) -> List<MTGCard>) {
     LIBRARY(MTGBoardState::library),
     EXILE(MTGBoardState::exile),
     LANDS( { board -> board.lands.map { it.asMTGCard() }}),
-    UNTAPPED_PERMANENTS( {it.field.filter { !it.tapped }}),
+    UNTAPPED_PERMANENTS( {it.field.filter { p -> !p.tapped }}),
     UNTAPPED_LANDS( { board -> board.lands.filter{ !it.tapped }.map { it.asMTGCard() }}),
 }
 

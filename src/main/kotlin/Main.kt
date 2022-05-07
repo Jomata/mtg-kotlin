@@ -1,3 +1,7 @@
+import java.math.BigDecimal
+import java.time.Duration
+import java.time.LocalDateTime
+
 val deckRatCar = """
     4 Haunted Ridge (MID) 263
     4 Greasefang, Okiba Boss (NEO) 220
@@ -139,21 +143,69 @@ fun main(args: Array<String>) {
 
     val onStitcherETB = MTGTriggeredAction.onETB("Stitcher",MTGBoardAction(MTGBoardActionType.MILL, 3))
     val onButlerETB = MTGTriggeredAction.onETB("Undead Butler",MTGBoardAction(MTGBoardActionType.MILL, 3))
+    var faithlessDiscardLogic = MTGBoardLogic(
+        _if = BoardQuery.hasCardInHand("type:Vehicle"),
+        _then = MTGCardAction(MTGCardActionType.DISCARD, "type:Vehicle"),
+        _else = MTGBoardLogic(
+            _if = MultiCondition.or(
+                MultiCondition.and(
+                    BoardQuery(MTGZone.LANDS, "type:Land", ConditionOperator.AT_LEAST, 3),
+                    BoardQuery.hasCardInHand( "type:Land"),
+                ),
+                BoardQuery(MTGZone.HAND, "type:Land", ConditionOperator.AT_LEAST, 2),
+            ),
+            _then = MTGCardAction(MTGCardActionType.DISCARD, "type:Land"),
+            _else = MTGBoardLogic(
+                _if = BoardQuery.hasCardInHand("Faithless Looting"),
+                _then = MTGCardAction(MTGCardActionType.DISCARD, "Faithless Looting"),
+                _else = MTGBoardLogic(
+                    _if = BoardQuery.hasCardInHand("type:Zombie"),
+                    _then = MTGCardAction(MTGCardActionType.DISCARD, "type:Zombie"),
+                    _else = MTGCardAction(MTGCardActionType.DISCARD, "*"),
+                )
+            )
+        )
+    )
     val onFaithlessCast = MTGTriggeredAction.onCast("Faithless Looting", listOf(
         MTGBoardAction(MTGBoardActionType.DRAW, 2),
-        //TODO: Better logic for discard
-        MTGCardAction(MTGCardActionType.DISCARD, "type:Vehicle"),
-        MTGCardAction(MTGCardActionType.DISCARD, "type:Vehicle"),
-    ))
+        //For first discard
+        //1. If vehicle in hand, discard vehicle
+        //2. If 2 lands in hand, or 3 lands in field, discard land
+        //3. If a card named Faithless Looting in hand, discard it
+        //4. If a card of type zombie in hand, discard it
+        //5. Instant or sorcery
+        //6. Discard anything
+        faithlessDiscardLogic,
+        //For second discard
+        //1. If reanimate and greasefang in hand, then discard greasefang
+        //The rest as above
+        MTGBoardLogic(
+            _if = MultiCondition.and(
+                BoardQuery.hasCardInHand("Greasefang"),
+                MultiCondition.or(
+                    BoardQuery.hasCardInHand("Revival"),
+                    BoardQuery.hasCardInHand("Can't Stay Away"),
+                )
+            ),
+            _then = MTGCardAction(MTGCardActionType.DISCARD, "Greasefang"),
+            _else = faithlessDiscardLogic,
+        ))
+    )
     val onGoblinETB = MTGTriggeredAction.onETB("Goblin Engineer", listOf(
         MTGCardAction(MTGCardActionType.TUTOR, "Parhelion"),
         MTGCardAction(MTGCardActionType.DISCARD, "Parhelion"),
     ))
+
+    val onRevivalCast = MTGTriggeredAction.onCast("Revival", MTGCardAction(MTGCardActionType.REANIMATE, "Greasefang"))
+    val onCSACast = MTGTriggeredAction.onCast("Can't Stay Away", MTGCardAction(MTGCardActionType.REANIMATE, "Greasefang"))
+
     val triggers = listOf(
         onStitcherETB,
         onButlerETB,
         onGoblinETB,
         onFaithlessCast,
+        onRevivalCast,
+        onCSACast,
     )
 
 //    val gameStart = MTGBoardState(deck = cardList).startGame()
@@ -171,6 +223,23 @@ fun main(args: Array<String>) {
 //    }
     //println(gameEnd)
     //Print all the actions in the game log
-    val gameEnd = MTGBoardState(deck = cardList, triggers = triggers).startGame().playTurns(10, heuristics)
-    gameEnd.gameLog.forEach { println(it.info) }
+    val start = LocalDateTime.now()
+    val runs = 1
+    val turns = 10
+    println("Running $runs games with $turns turns")
+    println("START: $start")
+    (1..runs).forEach{ _ ->
+        val gameEnd = MTGBoardState(deck = cardList, triggers = triggers).startGame().playTurns(turns, heuristics)
+        gameEnd.gameLog.forEach { println(it.info) }
+    }
+    val end = LocalDateTime.now()
+    println("END: $end")
+    val durationInMillis = Duration.between(start,end).toMillis()
+    val averageDurationInMillis = durationInMillis.toDouble() / runs.toDouble()
+    println("TOTAL: $durationInMillis ms")
+    println("AVG: $averageDurationInMillis")
+
+    //Crear una clase GameSim que recibe el deck, la cantidad de sims a correr, las acciones, los triggers, y la win condition
+    //Cada sim ejecuta turnos hasta que la win condition es true
+    //Guarda el turno en el que gano, y pasa a la siguiente sim
 }
