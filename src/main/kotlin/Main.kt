@@ -34,7 +34,7 @@ fun main(args: Array<String>) {
     val greasefangInHand = BoardQuery(MTGZone.HAND,"Greasefang")
     val greasefangInField = BoardQuery(MTGZone.BATTLEFIELD,"Greasefang")
     val parhelionInYard = BoardQuery(MTGZone.GRAVEYARD, "Parhelion")
-    val success = MultiCondition.and(greasefangInField, parhelionInYard)
+    val winCon = MultiCondition.and(greasefangInField, parhelionInYard)
     val greasefangInYard = BoardQuery(MTGZone.GRAVEYARD, "Greasefang")
     val noGreasefangInHandAndField = MultiCondition.and(
         BoardQuery(MTGZone.HAND, "Greasefang", ConditionOperator.EXACTLY, 0),
@@ -224,12 +224,14 @@ fun main(args: Array<String>) {
     //println(gameEnd)
     //Print all the actions in the game log
     val start = LocalDateTime.now()
-    val runs = 1
+    val runs = 10
     val turns = 10
-    println("Running $runs games with $turns turns")
+    //println("Running $runs games with $turns turns")
+    println("Running $runs games until wincon")
     println("START: $start")
     (1..runs).forEach{ _ ->
-        val gameEnd = MTGBoardState(deck = cardList, triggers = triggers).startGame().playTurns(turns, heuristics)
+        val gameEnd = MTGBoardState(deck = cardList, triggers = triggers).startGame().playUntilWinCon(winCon, heuristics)
+        println("=== Game ended in ${gameEnd.turn} turns ===")
         gameEnd.gameLog.forEach { println(it.info) }
     }
     val end = LocalDateTime.now()

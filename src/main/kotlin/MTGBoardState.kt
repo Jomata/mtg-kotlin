@@ -153,6 +153,18 @@ data class MTGBoardState(
         return afterActions.cleanupStep()
     }
 
+    fun playTurns(turns:Int, actions:List<IExecutable<MTGBoardState>> = emptyList()):MTGBoardState {
+        require(turns > 0)
+        return (1..turns).fold(this) { state, _ -> state.playTurn(actions) }
+    }
+
+    fun playUntilWinCon(winCondition: ICondition<MTGBoardState>, actions:List<IExecutable<MTGBoardState>> = emptyList()):MTGBoardState {
+        return if(winCondition.matches(this) || turn > 50)
+            this
+        else
+            this.playTurn(actions).playUntilWinCon(winCondition, actions)
+    }
+
     private fun runActions(actions:List<IExecutable<MTGBoardState>>, recursive: Boolean = true):MTGBoardState {
         val after = actions.fold(this) { acc, action -> action.execute(acc) }
         //We keep on running the actions until the board state doesn't change
@@ -160,15 +172,6 @@ data class MTGBoardState(
             after.runActions(actions)
         else
             after
-    }
-
-    fun playTurns(turns:Int, actions:List<IExecutable<MTGBoardState>> = emptyList()):MTGBoardState {
-        require(turns > 0)
-        return (1..turns).fold(this) { state, _ -> state.playTurn(actions) }
-    }
-
-    fun playToEnd(logic:MTGBoardLogic? = null):MTGBoardState {
-        return this
     }
 
     fun drawCards(howMany:Int): MTGBoardState {
