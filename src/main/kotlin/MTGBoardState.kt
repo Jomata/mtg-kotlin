@@ -284,6 +284,26 @@ data class MTGBoardState(
         )
     }
 
+    fun destroy(query: CardQuery) : MTGBoardState {
+        val match = field.firstOrNull { query.matches(it) } ?: return this
+        //Move match from field to graveyard
+        return this.copy(
+            field = field - match,
+            yard = yard + match,
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.DESTROY, "Destroying ${match.name}")
+        )
+    }
+
+    fun recover(query: CardQuery) : MTGBoardState {
+        val match = yard.firstOrNull { query.matches(it) } ?: return this
+        //Move match from graveyard to hand
+        return this.copy(
+            yard = yard - match,
+            hand = hand + match,
+            gameLog = gameLog + MTGGameLog(turn, MTGGameLogType.RECOVER, "Recovering ${match.name}")
+        )
+    }
+
     fun flashback(query: CardQuery) : MTGBoardState {
         val match = this.yard.firstOrNull { query.matches(it) } ?: return this
         val onCastTriggers = triggers.filter{ it.trigger == MTGTrigger.CAST && it.forCard.matches(match) }.flatMap{it.action}

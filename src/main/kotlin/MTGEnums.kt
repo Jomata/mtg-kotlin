@@ -105,4 +105,5 @@ enum class MTGCardField(val of: (MTGCard) -> String?) {
 enum class MTGTrigger {
     ETB,
     CAST,
+    DESTROYED,
 }

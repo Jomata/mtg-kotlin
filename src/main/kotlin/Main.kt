@@ -7,9 +7,20 @@ import java.time.Duration
 import java.time.LocalDateTime
 import java.util.*
 
+fun main() {
+    testJenetics()
+    //singleRun()
+}
 
-fun main(args: Array<String>) {
-    val cardList = MTGCard.fromRangeArenaList(RatCarSample.deck)
+private fun singleRun() {
+    val deck = MTGCard.fromArenaList(RatCarSample.deckExplorer)
+    println("Sample run")
+    val gameEnd = MTGBoardState(deck = deck, triggers = RatCarSample.triggers).startGame().playUntilWinCon(RatCarSample.winCon, RatCarSample.actions)
+    gameEnd.gameLog.forEach { println(it.info) }
+}
+
+private fun testJenetics() {
+    val cardList = MTGCard.fromRangeArenaList(RatCarSample.deckExplorer)
     val geneCount = cardList.size
     val minGene = cardList.minByOrNull { it.second }?.second ?: 0
     //Max is not inclusive, so we add 1

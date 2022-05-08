@@ -5,6 +5,15 @@ data class MTGTriggeredAction(
     val condition:ICondition<MTGBoardState>? = null
 ) {
     companion object {
+        fun onDestroyed(forCard:String, action:IExecutable<MTGBoardState>,condition:ICondition<MTGBoardState>? = null) = onDestroyed(CardQuery.parse(forCard),listOf(action),condition)
+        fun onDestroyed(forCard:String, action:List<IExecutable<MTGBoardState>>,condition:ICondition<MTGBoardState>? = null) = onDestroyed(CardQuery.parse(forCard),action,condition)
+        fun onDestroyed(forCard:CardQuery, action:List<IExecutable<MTGBoardState>>,condition:ICondition<MTGBoardState>? = null) = MTGTriggeredAction(
+            trigger = MTGTrigger.DESTROYED,
+            forCard = forCard,
+            action = action,
+            condition = condition,
+        )
+        
         fun onETB(forCard:String, action:IExecutable<MTGBoardState>,condition:ICondition<MTGBoardState>? = null) = onETB(CardQuery.parse(forCard),listOf(action),condition)
         fun onETB(forCard:String, action:List<IExecutable<MTGBoardState>>,condition:ICondition<MTGBoardState>? = null) = onETB(CardQuery.parse(forCard),action,condition)
         fun onETB(forCard:CardQuery, action:List<IExecutable<MTGBoardState>>,condition:ICondition<MTGBoardState>? = null) = MTGTriggeredAction(

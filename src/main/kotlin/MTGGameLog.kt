@@ -17,6 +17,8 @@ enum class MTGGameLogType {
     CAST,
     TUTOR,
     DISCARD,
+    DESTROY,
+    RECOVER,
     FLASHBACK,
     REANIMATE,
     EXILE,

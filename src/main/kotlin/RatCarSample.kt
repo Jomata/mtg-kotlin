@@ -1,7 +1,7 @@
 class RatCarSample {
     companion object {
     
-    //val greasefangInHand = BoardQuery(MTGZone.HAND,"Greasefang")
+    private val greasefangInHand = BoardQuery(MTGZone.HAND,"Greasefang")
     private val greasefangInField = BoardQuery(MTGZone.BATTLEFIELD,"Greasefang")
     private val parhelionInYard = BoardQuery(MTGZone.GRAVEYARD, "Parhelion")
     
@@ -33,6 +33,11 @@ class RatCarSample {
         greasefangInYard,
     ), MTGCardAction(MTGCardActionType.TRY_CAST, "Revival"))
 
+    private val tryReanimateGreaseWithSorin = MTGBoardLogic(MultiCondition.and(
+        parhelionInYard,
+        greasefangInYard,
+    ), MTGCardAction(MTGCardActionType.TRY_CAST, "Sorin, Vengeful Bloodlord"))
+
     private val tryReanimateGreaseWithCSAFlashback = MTGBoardLogic(MultiCondition.and(
         parhelionInYard,
         greasefangInYard,
@@ -55,6 +60,35 @@ class RatCarSample {
 
     private val tryCastStitcher = MTGBoardLogic(MTGCardAction(MTGCardActionType.TRY_CAST, "Stitcher's Supplier"))
     private val tryCastButler = MTGBoardLogic(MTGCardAction(MTGCardActionType.TRY_CAST, "Undead Butler"))
+    private val tryCastVampire = MTGBoardLogic(MTGCardAction(MTGCardActionType.TRY_CAST, "type:Vampire"))
+    private val tryCastKiki = MTGBoardLogic(MTGCardAction(MTGCardActionType.TRY_CAST, "Fable of the Mirror-Breaker"))
+
+    private val lootWithBloodToken = MTGBoardLogic(
+        MultiCondition.and(
+            GameQuery.canPayFor(1),
+            BoardQuery(MTGZone.BATTLEFIELD, "type:Vampire"),
+            BoardQuery(MTGZone.HAND, "type:Vehicle"),
+        ),
+        listOf(
+            MTGBoardAction(MTGBoardActionType.TAP_LANDS, 1),
+            MTGCardAction(MTGCardActionType.DESTROY, "type:Vampire"),
+            MTGCardAction(MTGCardActionType.DISCARD, "type:Vehicle"),
+            MTGBoardAction(MTGBoardActionType.DRAW, 1),
+        )
+    )
+
+    private val tryCastDeadlyIfZombieInField = MTGBoardLogic(
+        MultiCondition.and(
+            GameQuery.canPayFor("{1}{B}"),
+            BoardQuery(MTGZone.BATTLEFIELD, "type:Zombie"),
+            BoardQuery(MTGZone.HAND, "Deadly Dispute"),
+        ),
+        listOf(
+            MTGBoardAction(MTGBoardActionType.TAP_LANDS, 2),
+            MTGCardAction(MTGCardActionType.DESTROY, "type:Zombie"),
+            MTGCardAction(MTGCardActionType.CAST, "Deadly Dispute"),
+        )
+    )
 
     private val tryCastGoblinEngineer = MTGBoardLogic(
         noParhelionInYard,
@@ -93,9 +127,43 @@ class RatCarSample {
         ),
         MTGCardAction(MTGCardActionType.TRY_CAST, "Wishclaw")
     )
+        //Kiki should loot on step 2, but since we haven't implemented Sagas, we loot on ETB
+        //If we have reanimate in hand, greasefang in hand, and vehicle in yard, we discard greasefang
+        //If we have vehicle in hand, we discard vehicle
+        //If we have 2 or more greasefangs in hand, we discard one
+        private val reanimatorInHand = MultiCondition.or(
+            BoardQuery.hasCardInHand("Revival"),
+            BoardQuery.hasCardInHand("Can't Stay Away"),
+            BoardQuery.hasCardInHand("Sorin, Vengeful Bloodlord"),
+        )
+        private val vehicleInHand = BoardQuery.hasCardInHand("type:Vehicle")
+        private val kikiLootLogic = MTGBoardLogic(
+            _if = MultiCondition.and(parhelionInYard, reanimatorInHand, greasefangInHand),
+            _then = listOf(
+                MTGCardAction(MTGCardActionType.DISCARD, "Greasefang"),
+                MTGBoardAction(MTGBoardActionType.DRAW, 1)
+            ),
+            _else = MTGBoardLogic(
+                _if =  vehicleInHand,
+                _then = listOf(
+                    MTGCardAction(MTGCardActionType.DISCARD, "type:Vehicle"),
+                    MTGBoardAction(MTGBoardActionType.DRAW, 1)
+                ),
+                _else = MTGBoardLogic(
+                    _if = BoardQuery(MTGZone.HAND, "type:Greasefang", ConditionOperator.AT_LEAST, 2),
+                    _then = listOf(MTGCardAction(MTGCardActionType.DISCARD, "Greasefang"), MTGBoardAction(MTGBoardActionType.DRAW, 1)),
+                    _else = emptyList(),
+                )
+            )
+        )
+        private val onKikiETB = MTGTriggeredAction.onETB("Fable of the Mirror-Breaker", listOf(kikiLootLogic, kikiLootLogic))
 
         private val onStitcherETB = MTGTriggeredAction.onETB("Stitcher",MTGBoardAction(MTGBoardActionType.MILL, 3))
+        private val onStitcherDestroyed = MTGTriggeredAction.onDestroyed("Stitcher",MTGBoardAction(MTGBoardActionType.MILL, 3))
+
         private val onButlerETB = MTGTriggeredAction.onETB("Undead Butler",MTGBoardAction(MTGBoardActionType.MILL, 3))
+        private val onButlerDestroyed = MTGTriggeredAction.onDestroyed("Undead Butler",MTGCardAction(MTGCardActionType.RECOVER, "Greasefang"))
+
         private val faithlessDiscardLogic = MTGBoardLogic(
             _if = BoardQuery.hasCardInHand("type:Vehicle"),
             _then = MTGCardAction(MTGCardActionType.DISCARD, "type:Vehicle"),
@@ -114,11 +182,18 @@ class RatCarSample {
                     _else = MTGBoardLogic(
                         _if = BoardQuery.hasCardInHand("type:Zombie"),
                         _then = MTGCardAction(MTGCardActionType.DISCARD, "type:Zombie"),
-                        _else = MTGCardAction(MTGCardActionType.DISCARD, "*"),
+                        _else = MTGBoardLogic(
+                            _if = BoardQuery.hasCardInHand("type:Vampire"),
+                            _then = MTGCardAction(MTGCardActionType.DISCARD, "type:Vampire"),
+                            _else = MTGCardAction(MTGCardActionType.DISCARD, "*"),
+                        )
                     )
                 )
             )
         )
+
+        private val onDeadlyDisputeCast = MTGTriggeredAction.onCast("Deadly Dispute",MTGBoardAction(MTGBoardActionType.DRAW, 2))
+
         private val onFaithlessCast = MTGTriggeredAction.onCast("Faithless Looting", listOf(
             MTGBoardAction(MTGBoardActionType.DRAW, 2),
             //For first discard
@@ -151,6 +226,7 @@ class RatCarSample {
 
         private val onRevivalCast = MTGTriggeredAction.onCast("Revival", MTGCardAction(MTGCardActionType.REANIMATE, "Greasefang"))
         private val onCSACast = MTGTriggeredAction.onCast("Can't Stay Away", MTGCardAction(MTGCardActionType.REANIMATE, "Greasefang"))
+        private val onSorinETB = MTGTriggeredAction.onETB("Sorin", MTGCardAction(MTGCardActionType.REANIMATE, "Greasefang"))
 
         val deck = """
     4 Greasefang, Okiba Boss (NEO) 220
@@ -177,8 +253,39 @@ class RatCarSample {
     0-4 Inspiring Vantage (KLR) 246
 """.trimIndent()
 
+        val deckExplorer = """
+    4 Parhelion II (WAR) 24
+    2 Skysovereign, Consul Flagship (KLR) 272
+    4 Greasefang, Okiba Boss (NEO) 220
+    4 Thoughtseize (THS) 107
+    4 Fatal Push (KLR) 84
+    0-2 Sorin, Vengeful Bloodlord (WAR) 217
+    4 Stitcher's Supplier (M19) 121
+    0-4 Voldaren Epicure (VOW) 182
+    0-4 Undead Butler (VOW) 133
+    0-4 Bloodtithe Harvester (VOW) 232
+    0-4 Deadly Dispute (AFR) 94
+    0-4 Can't Stay Away (MID) 213
+    0-4 Revival // Revenge (RNA) 228
+    0-4 Fable of the Mirror-Breaker (NEO) 141
+    0-1 Mountain (SNC) 268
+    0-1 Takenuma, Abandoned Mine (NEO) 278
+    0-4 Blightstep Pathway (KHM) 252
+    0-4 Brightclimb Pathway (ZNR) 259
+    0-4 Needleverge Pathway (ZNR) 263
+    0-4 Blood Crypt (RNA) 245
+    0-4 Godless Shrine (RNA) 248
+    0-4 Sacred Foundry (GRN) 254
+    0-4 Haunted Ridge (MID) 263
+    0-4 Shattered Sanctum (VOW) 264
+    0-4 Sundown Pass (VOW) 266
+    0-4 Concealed Courtyard (KLR) 282
+    0-4 Inspiring Vantage (KLR) 246   
+        """.trimIndent()
+
         val actions = listOf(
             tryCastGreasefangIfParhelionInYard,
+            tryReanimateGreaseWithSorin,
             tryReanimateGreaseWithRR,
             tryReanimateGreaseWithCSA,
             tryReanimateGreaseWithCSAFlashback,
@@ -190,17 +297,26 @@ class RatCarSample {
             tryCastButler,
             tryCastWishclaw,
             tryCastFaithless,
+            tryCastDeadlyIfZombieInField,
+            tryCastKiki,
+            tryCastVampire,
+            lootWithBloodToken,
             tryCastGreasefang,
             flashbackFaithless,
         )
 
         val triggers = listOf(
             onStitcherETB,
+            onStitcherDestroyed,
             onButlerETB,
+            onButlerDestroyed,
             onGoblinETB,
             onFaithlessCast,
             onRevivalCast,
             onCSACast,
+            onDeadlyDisputeCast,
+            onKikiETB,
+            onSorinETB,
         )
 
         val winCon = MultiCondition.and(greasefangInField, parhelionInYard)

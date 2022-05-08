@@ -8,6 +8,8 @@ data class MTGCardAction (val action:MTGCardActionType, val query:CardQuery) : I
             MTGCardActionType.TRY_CAST -> board.tryCast(query)
             MTGCardActionType.TUTOR -> board.tutor(query)
             MTGCardActionType.DISCARD -> board.discard(query)
+            MTGCardActionType.DESTROY -> board.destroy(query)
+            MTGCardActionType.RECOVER -> board.recover(query)
             //MTGCardActionType.PLAY_LAND -> TODO()
             MTGCardActionType.FLASHBACK -> board.flashback(query)
             MTGCardActionType.REANIMATE -> board.reanimate(query)
@@ -23,6 +25,8 @@ enum class MTGCardActionType {
     TRY_CAST,
     TUTOR,
     DISCARD,
+    DESTROY,
+    RECOVER,
     //PLAY_LAND,
     FLASHBACK,
     REANIMATE,

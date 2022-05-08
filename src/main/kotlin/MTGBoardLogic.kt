@@ -15,6 +15,25 @@ data class MTGBoardLogic (
     )
 
     constructor(action: IExecutable<MTGBoardState>) : this(null,action,null)
+    constructor(
+        _if:ICondition<MTGBoardState>? = null,
+        _then:IExecutable<MTGBoardState>,
+        _else:List<IExecutable<MTGBoardState>>,
+    ) : this(
+        _if = _if,
+        _then = listOf(_then),
+        _else = _else,
+    )
+
+    constructor(
+        _if:ICondition<MTGBoardState>? = null,
+        _then:List<IExecutable<MTGBoardState>>,
+        _else:IExecutable<MTGBoardState>,
+    ) : this(
+        _if = _if,
+        _then = _then,
+        _else = listOf(_else),
+    )
 
     override fun execute(board: MTGBoardState): MTGBoardState {
         return if (_if?.matches(board) != false) { //If the condition is null, or evaluates to true
