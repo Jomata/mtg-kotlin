@@ -156,19 +156,19 @@ class RatCarSample {
     4 Greasefang, Okiba Boss (NEO) 220
     4 Parhelion II (WAR) 24
     1 Skysovereign, Consul Flagship (KLR) 272
-    0-4 Goblin Engineer (MH1) 128
-    0-4 Stitcher's Supplier (M19) 121
+    2-4 Goblin Engineer (MH1) 128
+    4-4 Stitcher's Supplier (M19) 121
     0-4 Undead Butler (VOW) 133
     0-4 Can't Stay Away (MID) 213
     0-4 Revival // Revenge (RNA) 228
     0-4 Bone Shards (MH2) 76
-    0-4 Faithless Looting (STA) 38
+    4-4 Faithless Looting (STA) 38
     0-2 Wishclaw Talisman (ELD) 110
-    0-4 Needleverge Pathway (ZNR) 263
     0-4 Blightstep Pathway (KHM) 252
     0-4 Brightclimb Pathway (ZNR) 259
-    0-4 Blood Crypt (RNA) 245
-    0-4 Godless Shrine (RNA) 248
+    0-4 Needleverge Pathway (ZNR) 263
+    4-4 Blood Crypt (RNA) 245
+    4-4 Godless Shrine (RNA) 248
     0-4 Sacred Foundry (GRN) 254
     0-4 Haunted Ridge (MID) 263
     0-4 Shattered Sanctum (VOW) 264

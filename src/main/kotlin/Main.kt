@@ -1,8 +1,7 @@
-import io.jenetics.Genotype
-import io.jenetics.IntegerChromosome
-import io.jenetics.IntegerGene
+import io.jenetics.*
 import io.jenetics.engine.Engine
 import io.jenetics.engine.EvolutionResult
+import io.jenetics.engine.Limits.bySteadyFitness
 import io.jenetics.util.Factory
 import java.time.Duration
 import java.time.LocalDateTime
@@ -30,49 +29,64 @@ fun main(args: Array<String>) {
         }
     }
 
-    val runs = 5000
+    val runs = 1000
     val generations = 500L
+    val steadyGenerations = 500
     fun fitness(genotype: Genotype<IntegerGene>): Double {
         val deck = genotypeToDeck(genotype)
-        if(deck.size != 60) return 0.0
+        if(deck.size != 60) return 100.0
 
         val turnsToEnd = MTGGameSim(deck, RatCarSample.actions, RatCarSample.triggers).runSims(RatCarSample.winCon, runs)
         //More points the lower the turns to end, so we divide 100 by each turn, and sum them up
-        return turnsToEnd.map { 100 / it }.average()
+        return turnsToEnd.average()
     }
 
     val integerGenotypeFactory: Factory<Genotype<IntegerGene>> = Genotype.of(IntegerChromosome.of(minGene, maxGene, geneCount))
     val engine = Engine
         .builder(::fitness, integerGenotypeFactory)
-        .interceptor(EvolutionResult.toUniquePopulation())
+        //.populationSize(20)
+        //.survivorsSelector(EliteSelector(1))
+        .minimizing()
+        //.interceptor(EvolutionResult.toUniquePopulation())
         .build()
 
     val start = LocalDateTime.now()
-    println("Running $generations generations of $runs simulations")
+    //println("Running $generations generations of $runs simulations")
+    println("Running until $steadyGenerations steady generations of $runs simulations")
     println("START: $start")
     val result = engine
         .stream()
-        .limit(generations)
+        .limit(bySteadyFitness(steadyGenerations))
+        //.limit(generations)
         .peek { g ->
             //TODO: Print population, such as:
             //[min,max] current card for each card, taking the min and max of the population for each card
-            println("Generation ${g.generation()}. Avg turn: ${100.0/g.bestPhenotype().fitness()}")
-            printDeck(genotypeToDeck(g.bestPhenotype().genotype()))
+            println("Generation ${g.generation()}. Best turn avg: ${g.bestPhenotype().fitness()}")
+            //printDeck(genotypeToDeck(g.bestPhenotype().genotype()))
+            g.bestPhenotype().genotype().chromosome().forEachIndexed { index, integerGene ->
+                val cardInfo = cardList[index]
+                //val min = g.population().minOf { it.genotype().chromosome()[index].allele() }.coerceIn(cardInfo.second, cardInfo.third)
+                //val max = g.population().maxOf { it.genotype().chromosome()[index].allele() }.coerceIn(cardInfo.second, cardInfo.third)
+                val avg = g.population().map { it.genotype().chromosome()[index].allele() }.average().coerceIn(cardInfo.second.toDouble(), cardInfo.third.toDouble())
+                val curr = integerGene.allele().coerceIn(cardInfo.second, cardInfo.third)
+                //println("[$min-$max] ${"|".repeat(curr).padEnd(max, '_')} ${cardInfo.first}")
+                println("[${"%.2f".format(avg)}] ${"|".repeat(curr).padEnd(cardInfo.third, '_')} ${cardInfo.first}")
+            }
         }
         .collect(EvolutionResult.toBestGenotype());
     val end = LocalDateTime.now()
     println("END: $end")
 
     val durationInMillis = Duration.between(start,end).toMillis()
-    val averageDurationInMillis = durationInMillis.toDouble() / generations.toDouble()
+    //val averageDurationInMillis = durationInMillis.toDouble() / generations.toDouble()
     println("TOTAL: $durationInMillis ms")
-    println("AVG: $averageDurationInMillis ms per generation")
+    //println("AVG: $averageDurationInMillis ms per generation")
 
     val finalDeck = genotypeToDeck(result)
     printDeck(finalDeck)
 
-    val finalSimTurns = MTGGameSim(finalDeck, RatCarSample.actions, RatCarSample.triggers).runSims(RatCarSample.winCon, runs)
-    println("Average turns to end: ${finalSimTurns.average()}")
+    //val finalSimTurns = MTGGameSim(finalDeck, RatCarSample.actions, RatCarSample.triggers).runSims(RatCarSample.winCon, runs)
+    //println("Average turns to end: ${finalSimTurns.average()}")
 
     //println("Sample run")
     //val gameEnd = MTGBoardState(deck = finalDeck, triggers = RatCarSample.triggers).startGame().playUntilWinCon(RatCarSample.winCon, RatCarSample.actions)
